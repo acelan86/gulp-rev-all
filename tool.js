@@ -258,26 +258,7 @@ module.exports = function(options) {
             var references = [reference];
 
             for (var i = 0; i < references.length; i++) {
-                var reference_ = references[i],
-                    
-                /**
-                 * 通过reference获取真实文件路径
-                 */
-                    extname = '.js',
-                    tmp;
-
-                if (isAmdCommonJs) {
-                    tmp = reference_.split('!');
-                    if (tmp[1]) {
-                        extname = '.' + tmp[0];
-                        reference_ = tmp[1];
-                    } else {
-                        reference_ = tmp[0];
-                    }
-                    if (reference_.indexOf(extname) === -1) {
-                        reference_ += extname;
-                    }
-                }
+                var reference_ = references[i];
 
                 for (var j = 0; j < bases.length; j++) {
                     referencePaths.push({
@@ -287,18 +268,51 @@ module.exports = function(options) {
                     });
                 }
 
-                referencePaths.push({
-                    base: fileBasePath,
-                    path: joinPath(fileBasePath, reference_),
-                    isRelative: false
-                });
+                //处理amd格式的js
+                var _getAmdCommonJsPath = function (base, reference) {
+                    var extname = ".js",
+                        tmp = reference_.split('!');
+                    if (tmp[1]) {
+                        extname = '.' + tmp[0];
+                        reference = tmp[1];
+                    } else {
+                        reference = tmp[0];
+                    }
+                    //如果有扩展名，且不以/， http://, https://开头
+                    //则为相对当前文件定位
+                    //console.log(path.extname(reference));
+                    if (path.extname(reference) === extname) {
+                        if (reference.substr(0, 1) !== '/' && reference.indexOf(/^(http|https):\/\//) === -1) {
+                            return path.resolve(fileDir, reference);
+                        }
+                    } else {
+                        reference += extname;
+                    }
+                    return joinPath(base, reference);
+                }
 
-                if (pathType === 'relative') {
-                    referencePaths.push({
-                        base: fileBasePath,
-                        path: joinPath(fileDir, reference_),
-                        isRelative: true
-                    });
+                switch (pathType) {
+                    case "relative":
+                        referencePaths.push({
+                            base: fileBasePath,
+                            path: path.resolve(fileDir, reference_),
+                            isRelative: true
+                        });
+                        break;
+                    case "amdCommonJs":
+                        referencePaths.push({
+                            base: fileBasePath,
+                            path: _getAmdCommonJsPath(fileBasePath, reference_),
+                            isRelative: false
+                        });
+                        break;
+                    default:
+                        referencePaths.push({
+                            base: fileBasePath,
+                            path: joinPath(fileBasePath, reference_),
+                            isRelative: false
+                        });
+                        break;
                 }
 
             }
