@@ -86,15 +86,16 @@ module.exports = function(options) {
 
         if (options.transformPath) {
             newPath = options.transformPath.call(self, newPath, reference, file, isRelative);
-        } else if (!isRelative && options.prefix) {
-            newPath = joinPathUrl(options.prefix, newPath);
+        } else if (options.prefix) {
+        //} else if (!isRelative && options.prefix) {
+            //newPath = joinPathUrl(options.prefix, newPath);
             //当是prefix时才使用相对跟路径的文件路径进行蹄花
-            // newPath = joinPathUrl(options.prefix, joinPath(
-            //     //获取相对根路径的文件路径
-            //     path.dirname(getRelativeFilename(file.base, file.path, true)),
-            //     //获取替换后的文件名
-            //     getRevisionFilename(file)
-            // ));
+            newPath = joinPathUrl(options.prefix, joinPath(
+                //获取相对根路径的文件路径
+                path.dirname(getRelativeFilename(file.base, file.path, true)),
+                //获取替换后的文件名
+                getRevisionFilename(file)
+            ));
         }
 
         var msg = isRelative ? 'relative' : 'root';
@@ -291,6 +292,7 @@ module.exports = function(options) {
                     //则为相对当前文件定位
                     if (path.extname(reference) === extname) {
                         if (_amdCommonJsIsRelative(reference)) {
+                            //console.log(path.resolve(fileDir, reference));
                             return path.resolve(fileDir, reference);
                         }
                     } else {
@@ -438,7 +440,7 @@ module.exports = function(options) {
                     //如果是amd配置项且是相对定位时，需要根据情况去除扩展名
                     //if (AMD_TYPE_MAP.CONFIG === partials[original]) {
                     //     console.log("remove extname", isRelative, partials[original], replaceWith);
-                    if (isRelative) {
+                    if (!options.prefix || (options.prefix && AMD_TYPE_MAP.CONFIG === partials[original])) {
                         replaceWith_ = replaceWith.replace(patho.extname(replaceWith), '');
                     }
                     //如果有css!xx类似的连接，则将css!移动到最前面，
