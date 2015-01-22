@@ -39,7 +39,9 @@ module.exports = function(options) {
 
 
     var getRelativeFilename = function (base, path, noStartingSlash) {
-        var dirRoot = noStartingSlash ? base.replace(/[^\\/]$/, '/') : base.replace(/[\\/]$/, '');
+        var dirRoot = noStartingSlash
+                ? base.replace(/[^\\/]$/, '/')
+                : base.replace(/[\\/]$/, '');
         return path.substr(dirRoot.length).replace(/\\/g, '/');
     };
 
@@ -77,7 +79,7 @@ module.exports = function(options) {
     var getReplacement = function (reference, file, isRelative, isAmdCommonJs) {
         var newPath = joinPath(path.dirname(reference), getRevisionFilename(file));
 
-        // Add back the relative reference so we don't break commonjs style includes
+        //Add back the relative reference so we don't break commonjs style includes
         if (reference.indexOf('./') === 0) {
             newPath = './' + newPath;
         }
@@ -86,6 +88,13 @@ module.exports = function(options) {
             newPath = options.transformPath.call(self, newPath, reference, file, isRelative);
         } else if (!isRelative && options.prefix) {
             newPath = joinPathUrl(options.prefix, newPath);
+            //当是prefix时才使用相对跟路径的文件路径进行蹄花
+            // newPath = joinPathUrl(options.prefix, joinPath(
+            //     //获取相对根路径的文件路径
+            //     path.dirname(getRelativeFilename(file.base, file.path, true)),
+            //     //获取替换后的文件名
+            //     getRevisionFilename(file)
+            // ));
         }
 
         var msg = isRelative ? 'relative' : 'root';
@@ -269,7 +278,7 @@ module.exports = function(options) {
                 }
 
                 //处理amd格式的js
-                var _getAmdCommonJsPath = function (base, reference) {
+                var _getAmdCommonJsFilePath = function (base, reference) {
                     var extname = ".js",
                         tmp = reference_.split('!');
                     if (tmp[1]) {
@@ -280,15 +289,19 @@ module.exports = function(options) {
                     }
                     //如果有扩展名，且不以/， http://, https://开头
                     //则为相对当前文件定位
-                    //console.log(path.extname(reference));
                     if (path.extname(reference) === extname) {
-                        if (reference.substr(0, 1) !== '/' && reference.indexOf(/^(http|https):\/\//) === -1) {
+                        if (_amdCommonJsIsRelative(reference)) {
                             return path.resolve(fileDir, reference);
                         }
                     } else {
                         reference += extname;
                     }
+                    //console.log(base, reference);
                     return joinPath(base, reference);
+                }
+
+                var _amdCommonJsIsRelative = function (reference) {
+                    return !(reference.substr(0, 1) === '/' || reference.indexOf(/^(http|https):\/\//) !== -1);
                 }
 
                 switch (pathType) {
@@ -299,11 +312,14 @@ module.exports = function(options) {
                             isRelative: true
                         });
                         break;
+                    /**
+                     * 不论什么情况
+                     */
                     case "amdCommonJs":
                         referencePaths.push({
                             base: fileBasePath,
-                            path: _getAmdCommonJsPath(fileBasePath, reference_),
-                            isRelative: false
+                            path: _getAmdCommonJsFilePath(fileBasePath, reference_),
+                            isRelative: _amdCommonJsIsRelative(reference_)
                         });
                         break;
                     default:
@@ -419,8 +435,10 @@ module.exports = function(options) {
 
                 var replaceWith_ = replaceWith;
                 for(original in partials) {
-                    //如果是amd配置项，那么需要去除替换的扩展名
-                    if (!options.prefix || (options.prefix && (AMD_TYPE_MAP.CONFIG === partials[original]))) {
+                    //如果是amd配置项且是相对定位时，需要根据情况去除扩展名
+                    //if (AMD_TYPE_MAP.CONFIG === partials[original]) {
+                    //     console.log("remove extname", isRelative, partials[original], replaceWith);
+                    if (isRelative) {
                         replaceWith_ = replaceWith.replace(patho.extname(replaceWith), '');
                     }
                     //如果有css!xx类似的连接，则将css!移动到最前面，
